@@ -19,6 +19,9 @@ The archive lists 535 WAV recordings (50 heart-only, 50 lung-only, and 145 mixed
 - Best validation checkpoint saved; final evaluation runs **once** on held-out recording IDs
 - SI-SDR (heart/lung) compared with using raw mixture as both predictions; per-recording CSV
 - Streamlit demo to upload a mixed WAV and play/visualize estimates
+- Compare waveform or spectrogram views, inspect recording details, and download
+  individual float WAV estimates or a ZIP containing all audio and metadata
+- Validate uploads for duration, size, silence, channels, and non-finite samples
 
 **Important:** the source signals are separately recorded, and waveform phase/timing may not perfectly coincide with the mixture. Magnitude-domain training mitigates but does not remove this issue; report both subjective listening and rigorous held-out metrics. Clinical/general-purpose validation is outside project scope.
 
@@ -27,10 +30,11 @@ The archive lists 535 WAV recordings (50 heart-only, 50 lung-only, and 145 mixed
 ```bash
 python -m venv .venv
 # Windows: .venv\Scripts\activate  |  Linux/macOS: source .venv/bin/activate
-pip install -e ".[test,demo]"
+pip install -e ".[test,demo,reports]"
 pulsesplit download                  # downloads ONLY from official UCI
 pulsesplit inspect
-pulsesplit train --epochs 30 --batch-size 8
+pulsesplit audit                    # JSON/CSV audio quality checks
+pulsesplit train --epochs 30 --batch-size 8 --dataset-label "UCI HLS-CMDS"
 pulsesplit evaluate
 streamlit run app.py
 pytest -q
@@ -53,6 +57,52 @@ pulsesplit download --archive /path/to/HLS-CMDS.zip
 - `tests/`: synthetic **unit-test fixture only** (not real model training results)
 - `docs/`: report and experiment protocol
 
-## Report status
+## Build a submission with execution evidence
+
+After installing `.[test,demo,reports]`, run:
+
+```bash
+python tools/build_submission.py
+```
+
+This runs the unit tests, trains a small model for two epochs on nine synthetic
+audio fixtures, reloads its checkpoint, checks inference, and creates
+`submission/<UTC timestamp>/PulseSplit_Submission.zip`. Send that ZIP to your teacher.
+It includes source code, tests, reports, architecture figures, and a `proof/`
+folder with test logs, training history, environment information, and a clearly
+labeled plot. An editable `proof/Software_Verification_Report.docx` reads actual
+test counts and synthetic loss values from the same run. `SHA256SUMS.json` records
+the packaged file hashes. The synthetic audit and evaluation exports are included
+as software checks and are labeled accordingly.
+
+The verification model is temporary. Synthetic checks demonstrate software execution;
+they do **not** demonstrate real UCI separation quality. For real experiment proof,
+follow the download/train/evaluate commands above and additionally share
+`artifacts/history.json`, `artifacts/run_metadata.json`, `artifacts/split.json`,
+and the generated files in `results/`. Keep raw data, `.venv/`, `.git/`, caches,
+and credentials out of your submission.
+
+## Experiment evidence and report exports
+
+`pulsesplit audit --splits artifacts/split.json` checks native sample rates,
+duration differences, silent channels, possible clipping, corrupt/nonfinite audio,
+and recording overlap. Read `results/audit/dataset_audit.json` and the per-file CSV
+before interpreting model results. The audit checks files; it does not verify their origin.
+
+Training now saves `artifacts/training_history.png` plus runtime, parameter count,
+configuration, environment and data label in `run_metadata.json`.
+Use `--dataset-label` to identify the supplied data; labels are user supplied.
+
+Evaluation rejects overlapping/invalid split IDs and exports `results/evaluation_report.md`.
+It reports per-recording means, medians, standard deviations, valid/undefined score
+counts, and deterministic bootstrap 95% confidence intervals for mean scores.
+Intervals assume independent recordings and do not address repeated simulator
+patterns or clinical generalization. Undefined scores are exported as JSON `null`.
+Checkpoint and split hashes identify the evaluated artifacts.
+
+See [software verification reports](docs/SOFTWARE_VERIFICATION.md) to regenerate
+an editable report from a particular evidence directory.
+
+## Research results status
 
 The editable report is a **research/project draft** with the reference PDF's academic format. Results tables are deliberately marked **PENDING REAL UCI RUN** until the official dataset can be downloaded and training/evaluation has been executed. Do not represent unit-test fixture outputs as scientific results.
