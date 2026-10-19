@@ -9,7 +9,8 @@ from datetime import datetime, timezone
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from .data import find_triplets, make_splits, SegmentDataset
+from .data import find_triplets, SegmentDataset
+from .grouping import make_source_group_splits
 from .model import MaskUNet, spectrogram, loss_fn, reconstruct
 from .audio import si_sdr
 from .reporting import validate_splits, file_sha256, write_evaluation_report, plot_training_history
@@ -20,10 +21,11 @@ def setup_seed(seed):
     if torch.cuda.is_available(): torch.cuda.manual_seed_all(seed)
 
 
-def get_data(root,seed=42,seconds=2):
+def get_data(root,seed=42,seconds=2,splits=None):
     triplets=find_triplets(root)
-    splits=make_splits(triplets,seed=seed)
+    splits=make_source_group_splits(triplets,seed=seed) if splits is None else splits
     by_id={t.key:t for t in triplets}
+    validate_splits(splits, by_id)
     datasets={kind:SegmentDataset([by_id[x] for x in splits[kind]],seconds=seconds,training=kind=='train') for kind in ('train','val','test')}
     return triplets,splits,datasets
 
@@ -46,20 +48,22 @@ def run_epoch(model,loader,optimizer=None,device='cpu'):
 
 
 def train(root='data/raw',output='artifacts',seed=42,epochs=30,batch_size=8,base=16,seconds=2,patience=7,
-          dataset_label='Unverified local recordings'):
+          dataset_label='Unverified local recordings',split_manifest=None):
     if epochs < 1 or batch_size < 1 or base < 1 or not np.isfinite(seconds) or seconds < .064 or patience < 1:
         raise ValueError('Use positive epochs, batch size, base and patience; segment duration must be at least 0.064 seconds')
     started = time.perf_counter()
     setup_seed(seed)
     device='cuda' if torch.cuda.is_available() else 'cpu'
-    triplets,splits,datasets=get_data(root,seed,seconds)
+    if split_manifest is not None and not isinstance(split_manifest, dict):
+        split_manifest = json.loads(Path(split_manifest).read_text(encoding='utf-8'))
+    triplets,splits,datasets=get_data(root,seed,seconds,splits=split_manifest)
     dest=Path(output); dest.mkdir(parents=True,exist_ok=True)
     (dest/'split.json').write_text(json.dumps(splits,indent=2))
     train_dl=DataLoader(datasets['train'],batch_size=batch_size,shuffle=True)
     val_dl=DataLoader(datasets['val'],batch_size=batch_size)
     model=MaskUNet(base).to(device)
     opt=torch.optim.AdamW(model.parameters(),lr=1e-3,weight_decay=1e-4)
-    best=float('inf'); stale=0; history=[]
+    best=float('inf'); best_epoch=0; stale=0; history=[]
     for epoch in range(1,epochs+1):
         tl=run_epoch(model,train_dl,opt,device)
         vl=run_epoch(model,val_dl,device=device)
@@ -68,9 +72,9 @@ def train(root='data/raw',output='artifacts',seed=42,epochs=30,batch_size=8,base
         history.append({'epoch':epoch,'train_logmag_mae':tl,'val_logmag_mae':vl})
         print(f'epoch={epoch:03d} train={tl:.5f} val={vl:.5f} device={device}',flush=True)
         if vl < best-1e-5:
-            best=vl;stale=0
+            best=vl;best_epoch=epoch;stale=0
             torch.save({'state_dict':model.state_dict(),'base':base,'sample_rate':8000,'n_fft':512,
-                        'hop':128,'seconds':seconds,'seed':seed,'best_val_loss':best},dest/'best.pt')
+                        'hop':128,'seconds':seconds,'seed':seed,'best_val_loss':best,'epoch':epoch},dest/'best.pt')
         else:
             stale+=1
             if stale>=patience:break
@@ -79,6 +83,7 @@ def train(root='data/raw',output='artifacts',seed=42,epochs=30,batch_size=8,base
         'python':platform.python_version(),'platform':platform.platform(),
         'completed_utc':datetime.now(timezone.utc).isoformat(),'runtime_seconds':time.perf_counter()-started,
         'dataset_label':dataset_label,'epochs_completed':len(history),'batch_size':batch_size,
+        'selected_epoch':best_epoch,'split_strategy':splits.get('strategy','recording-ID random split'),
         'base_channels':base,'segment_seconds':seconds,'parameter_count':sum(p.numel() for p in model.parameters()),
         'device':device,'seed':seed,'recordings':len(triplets),'split_sizes':{k:len(splits[k]) for k in ('train','val','test')},
         'segment_lengths':{k:len(datasets[k]) for k in ('train','val','test')},'best_val_logmag_mae':best},indent=2))

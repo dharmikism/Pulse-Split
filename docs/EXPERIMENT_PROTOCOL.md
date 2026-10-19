@@ -12,3 +12,26 @@
 
 ## Leakage warning
 Audio segments from the same 15-second original recording MUST NOT be in separate splits. If different recordings are generated from the same original simulator playback pattern, even recording-level splits may still share repeated underlying patterns; evaluate cross-pattern holdouts if metadata allows.
+
+## Actual archive pretraining amendment (19 October 2026)
+
+The official downloaded archive contains 145 matched triplets but only 144 unique
+mixture files, 89 unique heart files, and 74 unique lung files by SHA-256. The
+original recording-ID split can therefore share identical audio across partitions.
+Before training or evaluating the real model, replace it with connected-component
+grouping: link any recording IDs that share a byte-identical mixture, heart or lung
+file, and assign whole components to train/validation/test with seed 42. Save the
+actual split counts, component mapping and file hashes in `artifacts/split.json`.
+This addresses exact duplicates; related simulator patterns may remain shared.
+
+Matched WAV headers show mono, 4,000 Hz, and 15 seconds, despite the catalogue's
+22,050 Hz description. Keep 8,000 Hz internal preprocessing as planned; this
+upsampling does not add recorded bandwidth. Preserve all native-data audit warnings.
+
+The provided source tracks are separately recorded and are not verified as
+sample-aligned additive stems. Report raw reference SI-SDR with this limitation;
+do not interpret it as clinical accuracy. Freeze the model configuration at base
+16, two-second segments, batch size 8, seed 42, up to 30 epochs and validation
+patience 7 before training. Select using validation loss and evaluate the final
+test split once. No test-score-driven tuning is part of this run. Ablations and
+additional baselines in the earlier plan remain future work.

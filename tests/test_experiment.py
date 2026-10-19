@@ -18,8 +18,11 @@ def test_train_evaluate_exports_and_rejects_leakage(tmp_path):
         for kind, signal in [('M', heart + lung), ('H', heart), ('L', lung)]:
             sf.write(root / f'{kind}{index:04d}.wav', signal, 8000)
     artifact = tmp_path / 'model'
+    frozen_split = {'train': [f'{i:04d}' for i in range(5)],
+                    'val': ['0005', '0006'], 'test': ['0007', '0008'],
+                    'seed': 42, 'strategy': 'precomputed source groups'}
     checkpoint = train(root, artifact, epochs=1, base=2, batch_size=2, seconds=.128,
-                       dataset_label='Synthetic unit-test fixture')
+                       dataset_label='Synthetic unit-test fixture',split_manifest=frozen_split)
     summary = evaluate(root, checkpoint, tmp_path / 'evaluation')
     assert summary['dataset_label'] == 'Synthetic unit-test fixture'
     assert summary['num_test_recordings'] == 2
@@ -28,6 +31,8 @@ def test_train_evaluate_exports_and_rejects_leakage(tmp_path):
     assert (artifact / 'training_history.png').exists()
     metadata = json.loads((artifact / 'run_metadata.json').read_text())
     assert metadata['parameter_count'] > 0 and metadata['runtime_seconds'] > 0
+    assert metadata['split_strategy'] == 'precomputed source groups'
+    assert json.loads((artifact / 'split.json').read_text()) == frozen_split
     assert 'Synthetic unit-test fixture' in (tmp_path / 'evaluation/evaluation_report.md').read_text()
     splits = json.loads((artifact / 'split.json').read_text())
     splits['test'][0] = splits['train'][0]
