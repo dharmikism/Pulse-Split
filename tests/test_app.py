@@ -35,6 +35,49 @@ def test_upload_separation_and_view_switch(tmp_path):
         assert not app.exception
         assert len(app.get('audio')) == 3
         assert len(app.get('download_button')) == 4
-        app.radio[0].set_value('Waveform').run(timeout=30)
+        app.radio(key='visualization').set_value('Waveform').run(timeout=30)
         assert not app.exception
         assert len(app.get('audio')) == 3
+
+
+def test_saved_examples_without_checkpoint(tmp_path):
+    import json
+    folder = tmp_path / 'examples'
+    folder.mkdir()
+    signal = (.2 * np.sin(2 * np.pi * 90 * np.arange(8000) / 8000)).astype(np.float32)
+    for name in ('mixture', 'heart', 'lung'):
+        (folder / f'{name}.wav').write_bytes(wav_bytes(signal, 8000))
+    entry = {'id': 'fixture', 'title': 'Stored fixture', 'description': 'Synthetic UI test only',
+             'checkpoint_sha256': 'fixture', 'mixture': 'mixture.wav',
+             'heart': 'heart.wav', 'lung': 'lung.wav'}
+    (folder / 'manifest.json').write_text(json.dumps([entry]))
+    app = AppTest.from_string(app_source(tmp_path)).run(timeout=30)
+    assert not app.exception
+    assert len(app.get('audio')) == 3
+    assert len(app.get('download_button')) == 4
+    app.radio(key='visualization').set_value('Waveform').run(timeout=30)
+    assert not app.exception
+    assert len(app.get('audio')) == 3
+
+
+def test_switch_from_saved_example_to_upload(tmp_path):
+    import json
+    folder = tmp_path / 'examples'
+    folder.mkdir()
+    signal = (.2 * np.sin(2 * np.pi * 90 * np.arange(8000) / 8000)).astype(np.float32)
+    for name in ('mixture', 'heart', 'lung'):
+        (folder / f'{name}.wav').write_bytes(wav_bytes(signal, 8000))
+    entry = {'id': 'fixture', 'title': 'Stored fixture', 'description': 'Synthetic UI test only',
+             'checkpoint_sha256': 'fixture', 'mixture': 'mixture.wav',
+             'heart': 'heart.wav', 'lung': 'lung.wav'}
+    (folder / 'manifest.json').write_text(json.dumps([entry]))
+    app = AppTest.from_string(app_source(tmp_path)).run(timeout=30)
+    assert not app.exception
+    assert len(app.get('audio')) == 3
+    app.radio(key='audio_source').set_value('Upload WAV').run(timeout=30)
+    assert not app.exception
+    assert len(app.get('audio')) == 0
+    assert 'trained model' in app.warning[0].value
+    app.radio(key='audio_source').set_value('Saved examples').run(timeout=30)
+    assert not app.exception
+    assert len(app.get('audio')) == 3

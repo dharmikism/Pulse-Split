@@ -1,0 +1,32 @@
+[
+  {
+    "id": "0007",
+    "title": "Example 1 / Recording 0007",
+    "description": "15-second held-out UCI manikin recording. Compare the mixture with saved model estimates.",
+    "checkpoint_sha256": "8f7d663dcf0b582291c535c2e2935afb5c2f348ed67c18e6fe78f9f5f9f8bce9",
+    "sample_rate": 8000,
+    "mixture": "0007_mixture.wav",
+    "heart": "0007_heart.wav",
+    "lung": "0007_lung.wav"
+  },
+  {
+    "id": "0074",
+    "title": "Example 2 / Recording 0074",
+    "description": "15-second held-out UCI manikin recording. Compare the mixture with saved model estimates.",
+    "checkpoint_sha256": "8f7d663dcf0b582291c535c2e2935afb5c2f348ed67c18e6fe78f9f5f9f8bce9",
+    "sample_rate": 8000,
+    "mixture": "0074_mixture.wav",
+    "heart": "0074_heart.wav",
+    "lung": "0074_lung.wav"
+  },
+  {
+    "id": "0141",
+    "title": "Example 3 / Recording 0141",
+    "description": "15-second held-out UCI manikin recording. Compare the mixture with saved model estimates.",
+    "checkpoint_sha256": "8f7d663dcf0b582291c535c2e2935afb5c2f348ed67c18e6fe78f9f5f9f8bce9",
+    "sample_rate": 8000,
+    "mixture": "0141_mixture.wav",
+    "heart": "0141_heart.wav",
+    "lung": "0141_lung.wav"
+  }
+]

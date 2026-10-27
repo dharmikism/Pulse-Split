@@ -39,3 +39,17 @@ def wav_bytes(signal, sample_rate):
     buffer = io.BytesIO()
     sf.write(buffer, signal, sample_rate, format='WAV', subtype='FLOAT')
     return buffer.getvalue()
+
+
+def playback_bytes(signal, sample_rate, boost=True):
+    """Encode browser-friendly PCM at 48 kHz; boost only the listening copy."""
+    audio = np.asarray(signal, dtype=np.float32)
+    factor = gcd(int(sample_rate), 48000)
+    audio = resample_poly(audio, 48000 // factor, int(sample_rate) // factor)
+    peak = float(np.max(np.abs(audio))) if audio.size else 0.0
+    if boost and peak > 1e-7:
+        audio = audio * (0.9 / peak)
+    audio = np.clip(audio, -1.0, 1.0)
+    buffer = io.BytesIO()
+    sf.write(buffer, audio, 48000, format='WAV', subtype='PCM_16')
+    return buffer.getvalue()

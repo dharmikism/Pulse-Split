@@ -16,3 +16,6 @@ results/*
 
 *.egg-info/
 submission/
+
+# Curated, attributed frontend demonstration audio
+!examples/*.wav

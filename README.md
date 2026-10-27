@@ -145,3 +145,15 @@ See the measured [actual experiment report](docs/Actual_Experiment_Report.md) an
 its editable [Word version](docs/Actual_Experiment_Report.docx). The original
 working-draft Word/PDF retains its earlier placeholders; use the actual report for
 measured results. Synthetic software verification remains separate.
+
+## Frontend with stored examples
+
+Launch the local audio lab with `streamlit run app.py`. The default **Saved examples**
+view includes three held-out UCI manikin recordings and precomputed model estimates;
+playback, waveform/spectrogram views, and WAV/ZIP downloads work without loading a
+checkpoint. Switch to **Upload WAV** to separate your own audio using `artifacts/best.pt`.
+
+To regenerate examples after training, run `python tools/prepare_demo_examples.py`.
+This selects the first, middle, and last sorted test IDs, rather than selecting by
+performance. The manifest records the checkpoint hash. Example audio is distributed
+under the source dataset's CC BY 4.0 license; see [examples/README.md](examples/README.md).
